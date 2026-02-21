@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Opowl</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS & RESET
+═══════════════════════════════════════════ */
+:root {
+  --wp: #1a9fa8; --ws: #0a2535; --wg: rgba(26,159,168,0.35); --wpt: rgba(77,208,225,0.5);
+  --bg: #04090f; --surface: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.08);
+  --text: #e2eaf0; --muted: #4a6878; --accent: #80ffdb;
+  --radius: 20px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.6}
+
+/* ═══════════════════════════════════════════
+   CANVAS BG
+═══════════════════════════════════════════ */
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* ═══════════════════════════════════════════
+   PHASE CONTAINERS
+═══════════════════════════════════════════ */
+.phase{position:relative;z-index:1;min-height:100vh;display:none;flex-direction:column;align-items:center;padding:36px 20px 80px}
+.phase.active{display:flex}
+
+/* ═══════════════════════════════════════════
+   SHARED TYPOGRAPHY
+═══════════════════════════════════════════ */
+.serif{font-family:'Playfair Display',serif}
+.mono{font-family:'Space Mono',monospace}
+.kicker{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.4em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+h1,h2{font-family:'Playfair Display',serif;font-weight:400;line-height:1.15}
+h2{font-size:clamp(1.8rem,4.5vw,2.6rem);margin-bottom:10px}
+h2 em{font-style:italic;color:var(--accent);transition:color .6s}
+.sub{font-size:.95rem;color:var(--muted);font-weight:300;margin-bottom:40px;max-width:480px;text-align:center;line-height:1.6}
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes breatheIdle{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.08);filter:brightness(1.18)}}
+@keyframes breatheIn{from{transform:scale(1)}to{transform:scale(1.28)}}
+@keyframes breatheOut{from{transform:scale(1.28)}to{transform:scale(1)}}
+@keyframes breatheHold{0%,100%{transform:scale(1.28)}}
+@keyframes thinking{0%,100%{transform:scale(1);filter:brightness(1) hue-rotate(0deg)}33%{transform:scale(1.06);filter:brightness(1.3) hue-rotate(15deg)}66%{transform:scale(.97);filter:brightness(.9) hue-rotate(-10deg)}}
+@keyframes dotBlink{0%,80%,100%{opacity:.2;transform:scale(1)}40%{opacity:1;transform:scale(1.4)}}
+@keyframes pearlDrop{0%{opacity:0;transform:translateY(-40px) scale(0)}60%{transform:translateY(6px) scale(1.1)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes ringPulse{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:.6;transform:scale(1.03)}}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── TAMAGOTCHI HAPPINESS STATES ── */
+/* float speeds per level — applied via JS animation-duration override */
+@keyframes floatH0{0%,100%{transform:translateY(0)       scale(.93);opacity:.7}50%{transform:translateY(-4px)  scale(.93);opacity:.75}}
+@keyframes floatH1{0%,100%{transform:translateY(0)       scale(.96)}50%{transform:translateY(-6px)  scale(.97)}}
+@keyframes floatH2{0%,100%{transform:translateY(0)       scale(.98)}50%{transform:translateY(-9px)  scale(1.01)}}
+@keyframes floatH3{0%,100%{transform:translateY(0)       scale(1.0)}50%{transform:translateY(-11px) scale(1.04)}}
+@keyframes floatH4{0%,100%{transform:translateY(0)       scale(1.02);filter:brightness(1.1)}50%{transform:translateY(-13px) scale(1.07);filter:brightness(1.2)}}
+@keyframes floatH5{0%,100%{transform:translateY(0)       scale(1.03);filter:brightness(1.15)}25%{transform:translateY(-14px) scale(1.08) rotate(-2deg)}75%{transform:translateY(-12px) scale(1.07) rotate(2deg)}}
+
+/* sparkle orbiters */
+@keyframes orbit{from{transform:rotate(0deg) translateX(var(--r,82px)) rotate(0deg)}to{transform:rotate(360deg) translateX(var(--r,82px)) rotate(-360deg)}}
+@keyframes orbitCCW{from{transform:rotate(0deg) translateX(var(--r,78px)) rotate(0deg)}to{transform:rotate(-360deg) translateX(var(--r,78px)) rotate(360deg)}}
+@keyframes sparkPulse{0%,100%{opacity:0;transform:scale(.5)}50%{opacity:1;transform:scale(1)}}
+@keyframes heartPop{0%{opacity:0;transform:translate(-50%,-50%) scale(0)}40%{opacity:1;transform:translate(-50%,-120%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-200%) scale(.8)}}
+
+.sparkle-ring{position:absolute;inset:0;pointer-events:none;border-radius:50%}
+.sorb{position:absolute;top:50%;left:50%;width:7px;height:7px;border-radius:50%;background:var(--wp);opacity:0;transition:opacity 1.2s ease;box-shadow:0 0 8px var(--wg);}
+.sorb.s1{--r:88px;animation:orbit 4.2s linear infinite}
+.sorb.s2{--r:82px;animation:orbitCCW 5.8s linear infinite;animation-delay:-.8s}
+.sorb.s3{--r:94px;animation:orbit 3.5s linear infinite;animation-delay:-1.4s}
+.sorb.s4{--r:78px;animation:orbitCCW 6.5s linear infinite;animation-delay:-.3s}
+.sorb.s5{--r:98px;animation:orbit 2.9s linear infinite;animation-delay:-.9s;width:5px;height:5px}
+
+.heart-pop{position:absolute;top:50%;left:50%;font-size:1rem;pointer-events:none;animation:heartPop .9s ease forwards;opacity:0}
+
+/* happiness label under bubble */
+.hap-label{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;transition:color 1.5s ease, opacity .8s ease;margin-top:4px;opacity:.5}
+
+/* bubble glow ring that intensifies */
+.bubble-glow-ring{position:absolute;inset:-12px;border-radius:50%;pointer-events:none;transition:box-shadow 2s ease, opacity 1.5s ease;opacity:0}
+
+
+/* ═══════════════════════════════════════════
+   PROGRESS TRAIL
+═══════════════════════════════════════════ */
+.trail{display:flex;gap:8px;align-items:center;margin-bottom:44px}
+.tdot{width:8px;height:8px;border-radius:50%;background:var(--border);border:1px solid rgba(255,255,255,.1);transition:all .5s}
+.tdot.done{background:var(--wp);box-shadow:0 0 10px var(--wg)}
+.tdot.active{background:var(--accent);box-shadow:0 0 16px rgba(128,255,219,.5);transform:scale(1.4)}
+.tline{width:28px;height:1px;background:var(--border);transition:background .5s}
+.tline.done{background:var(--wp)}
+
+/* ═══════════════════════════════════════════
+   OPTION GRID
+═══════════════════════════════════════════ */
+.og{display:grid;gap:12px;width:100%;max-width:640px;margin-bottom:32px}
+.og.c2{grid-template-columns:1fr 1fr}
+.og.c4{grid-template-columns:1fr 1fr 1fr 1fr}
+@media(max-width:540px){.og.c4{grid-template-columns:1fr 1fr}}
+
+.ocard{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px 14px 18px;cursor:pointer;transition:all .25s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;overflow:hidden;user-select:none}
+.ocard::after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 0%,rgba(128,255,219,.06),transparent 70%);opacity:0;transition:opacity .3s}
+.ocard:hover{border-color:rgba(255,255,255,.2);transform:translateY(-3px);box-shadow:0 10px 36px rgba(0,0,0,.5)}
+.ocard:hover::after{opacity:1}
+.ocard.sel{border-color:var(--wp);background:rgba(255,255,255,.06);box-shadow:0 0 0 2px var(--wp),0 0 40px var(--wg);transform:translateY(-3px) scale(1.02)}
+.ocard.sel::after{opacity:1}
+.ocard.sel .chk{opacity:1;transform:scale(1)}
+.chk{position:absolute;top:9px;right:9px;width:18px;height:18px;border-radius:50%;background:var(--wp);font-size:10px;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.4);transition:all .3s cubic-bezier(.16,1,.3,1)}
+.oicon{font-size:2.2rem;line-height:1;transition:transform .3s}
+.ocard:hover .oicon,.ocard.sel .oicon{transform:scale(1.12)}
+.olabel{font-family:'Playfair Display',serif;font-size:.9rem;color:var(--text)}
+.odesc{font-size:11px;color:var(--muted);text-align:center;line-height:1.4;font-weight:300}
+
+/* ═══════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════ */
+.btn{background:linear-gradient(135deg,var(--ws),var(--wp));border:1px solid var(--wp);color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;letter-spacing:.08em;padding:13px 36px;border-radius:40px;cursor:pointer;transition:all .3s;box-shadow:0 4px 24px var(--wg);opacity:.35;pointer-events:none}
+.btn.on{opacity:1;pointer-events:all}
+.btn.on:hover{transform:translateY(-2px);box-shadow:0 8px 32px var(--wg)}
+.btn.always{opacity:1;pointer-events:all}
+
+/* ═══════════════════════════════════════════
+   NAME INPUT
+═══════════════════════════════════════════ */
+.namewrap{width:100%;max-width:340px;margin-bottom:20px}
+.nameinput{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 22px;color:var(--text);font-family:'Playfair Display',serif;font-size:1.4rem;font-style:italic;text-align:center;outline:none;transition:all .3s}
+.nameinput::placeholder{color:var(--muted)}
+.nameinput:focus{border-color:var(--wp);box-shadow:0 0 28px var(--wg)}
+.name-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:28px}
+.nchip{font-family:'Playfair Display',serif;font-style:italic;font-size:13px;padding:5px 15px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .2s}
+.nchip:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+.nchip.picked{border-color:var(--wp);color:var(--accent)}
+
+/* ═══════════════════════════════════════════
+   REVEAL PHASE
+═══════════════════════════════════════════ */
+.rev-bubble{width:170px;height:170px;border-radius:50%;position:relative;margin:10px 0 28px;animation:breatheIdle 6s ease-in-out infinite}
+.rev-bubble-inner{position:absolute;inset:0;border-radius:50%;transition:background 1.5s,box-shadow 1.5s}
+.rev-animal{position:absolute;font-size:3.2rem;top:50%;left:50%;transform:translate(-50%,-50%);animation:float 5s ease-in-out infinite;filter:drop-shadow(0 0 18px var(--wg))}
+.rev-name{font-family:'Playfair Display',serif;font-size:2.8rem;font-style:italic;margin-bottom:6px}
+.rev-wisdom{font-size:1rem;color:var(--muted);font-style:italic;font-family:'Playfair Display',serif;margin-bottom:28px}
+.rev-tags{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:24px}
+.rtag{font-size:11px;padding:4px 13px;border-radius:20px;background:var(--surface);border:1px solid var(--border);color:var(--muted)}
+.pearl-stage{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:28px}
+.pearl{width:44px;height:44px;border-radius:50%;opacity:0;transform:scale(0) translateY(-40px)}
+.pearl.drop{animation:pearlDrop .9s cubic-bezier(.16,1,.3,1) forwards}
+.pearl-label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.3em;color:var(--muted);text-transform:uppercase;opacity:0;transition:opacity .8s ease .7s}
+.pearl.drop~.pearl-label{opacity:1}
+.rev-greeting{font-size:.9rem;color:var(--muted);font-style:italic;font-family:'Playfair Display',serif;max-width:320px;text-align:center;line-height:1.7;margin-bottom:32px}
+
+/* ═══════════════════════════════════════════
+   DOJO PHASE
+═══════════════════════════════════════════ */
+.dojo-header{display:flex;align-items:center;justify-content:space-between;width:100%;max-width:580px;margin-bottom:4px}
+.dojo-logo{font-family:'Playfair Display',serif;font-size:.85rem;letter-spacing:.15em;color:var(--muted)}
+.dojo-logo span{color:var(--wp)}
+.pearl-count{display:flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)}
+.pc-gems{display:flex;gap:4px}
+.pc-gem{width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.5),var(--wp));opacity:.25;transition:opacity .4s,transform .4s}
+.pc-gem.lit{opacity:1;transform:scale(1.2);box-shadow:0 0 8px var(--wg)}
+
+/* Bubble stage */
+.bubble-stage{position:relative;width:240px;height:240px;display:flex;align-items:center;justify-content:center;margin:16px 0;flex-shrink:0}
+.bring{position:absolute;border-radius:50%;border:1px solid rgba(255,255,255,.07);animation:ringPulse 4s ease-in-out infinite}
+.bring:nth-child(1){width:240px;height:240px}
+.bring:nth-child(2){width:200px;height:200px;animation-delay:.4s}
+.bring:nth-child(3){width:162px;height:162px;animation-delay:.8s}
+.bubble{width:148px;height:148px;border-radius:50%;position:relative;animation:breatheIdle 6s ease-in-out infinite;cursor:pointer}
+.bubble-inner{position:absolute;inset:0;border-radius:50%}
+.bubble-shine{position:absolute;width:38%;height:32%;top:12%;left:17%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.2),transparent 70%);transform:rotate(-30deg)}
+.bubble-animal{position:absolute;font-size:2.4rem;top:50%;left:50%;transform:translate(-50%,-50%);animation:float 5s ease-in-out infinite;filter:drop-shadow(0 0 12px var(--wg))}
+.bubble-label{position:absolute;bottom:-38px;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;white-space:nowrap;transition:all .5s;font-family:'Space Mono',monospace}
+
+/* Input */
+.dojo-input-area{width:100%;max-width:560px;margin-top:36px}
+.input-prompt{text-align:center;font-family:'Playfair Display',serif;font-style:italic;font-size:1.05rem;color:var(--muted);margin-bottom:14px;transition:all .5s}
+.input-wrap{background:rgba(4,9,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:18px;backdrop-filter:blur(20px);transition:border-color .3s,box-shadow .3s}
+.input-wrap:focus-within{border-color:rgba(255,255,255,.25);box-shadow:0 0 30px rgba(0,0,0,.4)}
+textarea{width:100%;background:transparent;border:none;outline:none;padding:18px 22px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:300;line-height:1.7;resize:none;min-height:90px}
+textarea::placeholder{color:var(--muted);font-style:italic}
+.input-foot{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-top:1px solid rgba(255,255,255,.05)}
+.input-hint{font-size:11px;color:var(--muted);font-style:italic}
+.send-btn{background:linear-gradient(135deg,rgba(10,37,53,.8),var(--wp));border:1px solid var(--wp);color:#fff;font-size:13px;font-weight:500;letter-spacing:.08em;padding:8px 20px;border-radius:30px;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif}
+.send-btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--wg)}
+.send-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+
+/* Activity cards */
+.act-section{width:100%;max-width:560px;margin-top:36px;display:none}
+.act-section.show{display:block;animation:fadeUp .7s ease forwards}
+.act-head{text-align:center;font-family:'Playfair Display',serif;font-style:italic;font-size:.9rem;color:var(--muted);margin-bottom:18px}
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.acard{background:rgba(4,14,26,.7);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px 16px;cursor:pointer;transition:all .25s;backdrop-filter:blur(20px);opacity:0}
+.acard.in{animation:cardIn .5s ease forwards}
+.acard:hover{border-color:rgba(255,255,255,.2);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.4)}
+.ac-emoji{font-size:1.7rem;margin-bottom:8px}
+.ac-title{font-family:'Playfair Display',serif;font-size:.9rem;color:var(--wp);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.ac-dur{font-size:10px;color:var(--muted);font-family:'Space Mono',monospace}
+.ac-tag{font-size:11px;color:var(--muted);font-weight:300;line-height:1.5}
+
+/* Mood check */
+.mood-wrap{margin-top:28px;text-align:center;display:none}
+.mood-wrap.show{display:block;animation:fadeIn .6s ease forwards}
+.mood-q{font-family:'Playfair Display',serif;font-style:italic;font-size:.95rem;color:var(--muted);margin-bottom:14px}
+.mood-row{display:flex;gap:12px;justify-content:center}
+.mdot{width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.1);cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.mdot:hover{transform:scale(1.2);border-color:var(--wp)}
+
+/* Soul file strip */
+.soul-strip{width:100%;max-width:560px;margin-top:20px;display:none}
+.soul-strip.show{display:block;animation:fadeIn .8s ease .5s forwards;opacity:0}
+.soul-head{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.soul-pulse{width:6px;height:6px;border-radius:50%;background:var(--wp);animation:dotBlink 2s ease-in-out infinite}
+.soul-words{display:flex;flex-wrap:wrap;gap:6px}
+.sword{font-size:11px;padding:4px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--muted);transition:all .4s}
+.sword.new-word{border-color:var(--wp);color:var(--accent);background:rgba(128,255,219,.05);animation:scaleIn .4s cubic-bezier(.16,1,.3,1) forwards}
+
+/* Loading dots */
+.ldots{display:inline-flex;gap:5px;align-items:center}
+.ldots span{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:dotBlink 1.2s ease-in-out infinite}
+.ldots span:nth-child(2){animation-delay:.2s}
+.ldots span:nth-child(3){animation-delay:.4s}
+
+
+/* ── MISSION POP BUBBLES ── */
+.pop-canvas{position:absolute;inset:0;pointer-events:none;z-index:0}
+.mission-overlay-wrap{position:relative;width:100%;flex:1;display:flex;flex-direction:column;align-items:center}
+@keyframes bubbleFloat{0%{transform:translateY(0) scale(1);opacity:.9}100%{transform:translateY(-110vh) scale(.6);opacity:0}}
+@keyframes popBurst{0%{transform:scale(1);opacity:1}40%{transform:scale(1.8);opacity:.8}100%{transform:scale(2.6);opacity:0}}
+.pop-bub{position:fixed;border-radius:50%;cursor:pointer;z-index:110;pointer-events:all;transition:transform .05s;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:rgba(255,255,255,.6);user-select:none;-webkit-tap-highlight-color:transparent;}
+.pop-bub:hover{transform:scale(1.1)}
+.pop-bub.burst{animation:popBurst .35s ease forwards;pointer-events:none}
+.skip-hint{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;opacity:.6}
+/* feeling section */
+.feel-section{display:none;flex-direction:column;align-items:center;width:100%;animation:fadeUp .7s ease forwards}
+.feel-section.show{display:flex}
+.feel-prompt{font-family:'Playfair Display',serif;font-style:italic;font-size:1.1rem;color:var(--muted);margin-bottom:16px;text-align:center;max-width:320px;line-height:1.6}
+.feel-input{width:100%;max-width:400px;background:rgba(4,9,15,.7);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 18px;color:var(--text);font-family:'Playfair Display',serif;font-size:1rem;font-style:italic;outline:none;resize:none;min-height:70px;line-height:1.6;transition:border-color .3s}
+.feel-input::placeholder{color:var(--muted)}
+.feel-input:focus{border-color:var(--wp)}
+.feel-submit{margin-top:14px;background:linear-gradient(135deg,var(--ws),var(--wp));border:1px solid var(--wp);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.08em;padding:10px 28px;border-radius:30px;cursor:pointer;transition:all .2s}
+.feel-submit:hover{transform:translateY(-1px);box-shadow:0 4px 20px var(--wg)}
+.m-skip-btn{background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;padding:6px 18px;border-radius:20px;cursor:pointer;margin-top:10px;letter-spacing:.08em;transition:all .2s}
+.m-skip-btn:hover{border-color:rgba(255,255,255,.25);color:var(--text)}
+
+/* ═══════════════════════════════════════════
+   ACTIVITY OVERLAY
+═══════════════════════════════════════════ */
+.overlay{position:fixed;inset:0;z-index:100;background:rgba(2,6,12,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;opacity:0;pointer-events:none;transition:opacity .5s}
+.overlay.open{opacity:1;pointer-events:all}
+.ov-close{position:absolute;top:22px;right:22px;background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--muted);font-size:12px;padding:6px 16px;border-radius:20px;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:.1em;transition:all .2s}
+.ov-close:hover{color:var(--text);border-color:rgba(255,255,255,.3)}
+
+/* Experience bubble */
+.exp-stage{position:relative;width:190px;height:190px;display:flex;align-items:center;justify-content:center;margin-bottom:24px;flex-shrink:0}
+.exp-bubble{width:158px;height:158px;border-radius:50%;position:relative}
+.exp-bubble-inner{position:absolute;inset:0;border-radius:50%;transition:background 1s}
+.exp-bubble-shine{position:absolute;width:37%;height:30%;top:12%;left:18%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.22),transparent 70%);transform:rotate(-30deg)}
+.exp-animal{position:absolute;font-size:2.8rem;top:50%;left:50%;transform:translate(-50%,-50%);animation:float 5s ease-in-out infinite;filter:drop-shadow(0 0 16px var(--wg))}
+
+.exp-instr{font-family:'Playfair Display',serif;font-size:1.55rem;font-weight:400;text-align:center;color:var(--wp);min-height:48px;transition:opacity .4s;max-width:380px;line-height:1.3;margin-bottom:8px}
+.exp-sub{font-size:.88rem;color:var(--muted);text-align:center;max-width:360px;line-height:1.6;min-height:44px;transition:opacity .4s;margin-bottom:24px;font-weight:300}
+.exp-prog{width:180px;height:2px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;margin-bottom:24px}
+.exp-prog-bar{height:100%;background:linear-gradient(90deg,var(--ws),var(--wp));border-radius:2px;width:0%;transition:width linear}
+.exp-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;letter-spacing:.1em;padding:11px 28px;border-radius:30px;cursor:pointer;text-transform:uppercase;transition:all .2s}
+.exp-btn:hover{background:rgba(255,255,255,.12);transform:translateY(-1px)}
+
+/* Word chips */
+.word-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:10px 0 18px}
+.wchip{background:rgba(4,20,36,.8);border:1px solid rgba(255,255,255,.12);color:var(--wp);padding:8px 16px;border-radius:20px;font-family:'Playfair Display',serif;font-size:.95rem;cursor:pointer;transition:all .2s;user-select:none}
+.wchip:hover,.wchip.sel{background:rgba(26,127,168,.3);border-color:var(--wp);transform:scale(1.05)}
+.wchip.used{opacity:.25;cursor:default;pointer-events:none;transform:none}
+
+/* Mission */
+.mission-box{background:rgba(4,20,36,.7);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:22px 28px;text-align:center;max-width:340px;margin:10px 0 16px}
+.m-label{font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:10px}
+.m-text{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--accent);line-height:1.5}
+.m-timer{font-size:2.8rem;font-family:'Playfair Display',serif;color:var(--wp);margin:10px 0;font-weight:300}
+
+/* Sense list */
+.sense-list{display:flex;flex-direction:column;gap:8px;width:100%;max-width:320px;margin:10px 0 20px}
+.sitem{display:flex;gap:14px;align-items:center;background:rgba(4,20,36,.6);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 16px;transition:all .4s}
+.sitem.active{border-color:var(--wp);background:rgba(26,127,168,.15);box-shadow:0 0 16px rgba(26,127,168,.15)}
+.sitem.done{opacity:.28}
+.snum{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--wp);width:24px;flex-shrink:0}
+.sdesc{font-size:12px;color:var(--text);line-height:1.4;font-weight:300}
+
+/* Pearl earned overlay */
+.pearl-earned{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.85);opacity:0;pointer-events:none;transition:opacity .5s}
+.pearl-earned.show{opacity:1;pointer-events:all}
+.pe-pearl{width:80px;height:80px;border-radius:50%;animation:pearlDrop .9s cubic-bezier(.16,1,.3,1) forwards;opacity:0}
+.pe-title{font-family:'Playfair Display',serif;font-size:1.8rem;font-style:italic;color:var(--text);margin-top:24px;margin-bottom:8px;opacity:0;animation:fadeUp .7s ease .5s forwards}
+.pe-sub{font-size:.9rem;color:var(--muted);font-style:italic;font-family:'Playfair Display',serif;opacity:0;animation:fadeUp .7s ease .8s forwards}
+.pe-close{margin-top:32px;opacity:0;animation:fadeUp .7s ease 1.1s forwards;background:transparent;border:1px solid rgba(255,255,255,.15);color:var(--muted);padding:9px 24px;border-radius:20px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;letter-spacing:.1em}
+
+/* ═══════════════════════════════════════════
+   WORLD THEMES
+═══════════════════════════════════════════ */
+.w-ocean   {--wp:#1a9fa8;--ws:#082030;--wg:rgba(26,159,168,.35);--wpt:rgba(77,208,225,.5)}
+.w-forest  {--wp:#3da86e;--ws:#0d2a1a;--wg:rgba(61,168,110,.35);--wpt:rgba(100,200,140,.5)}
+.w-sky     {--wp:#5b8fe8;--ws:#0d1a40;--wg:rgba(91,143,232,.35);--wpt:rgba(150,190,255,.5)}
+.w-mountains{--wp:#7aa8c0;--ws:#0d1e28;--wg:rgba(122,168,192,.35);--wpt:rgba(160,210,230,.5)}
+.w-field   {--wp:#8bc04a;--ws:#141f08;--wg:rgba(139,192,74,.35);--wpt:rgba(180,230,100,.5)}
+.w-desert  {--wp:#c9943a;--ws:#2a1a08;--wg:rgba(201,148,58,.35);--wpt:rgba(220,180,100,.5)}
+.w-city    {--wp:#9b7ec8;--ws:#150d25;--wg:rgba(155,126,200,.35);--wpt:rgba(180,150,230,.5)}
+.w-space   {--wp:#c0a0e8;--ws:#08060e;--wg:rgba(192,160,232,.35);--wpt:rgba(220,200,255,.5)}
+
+/* ═══════════════════════════════════════════
+   DISCLAIMER
+═══════════════════════════════════════════ */
+.disclaimer{position:fixed;bottom:0;left:0;right:0;text-align:center;padding:10px;font-size:10px;color:rgba(90,138,159,.4);z-index:5;background:linear-gradient(0deg,rgba(4,9,15,.9),transparent);letter-spacing:.04em;font-family:'Space Mono',monospace}
+
+/* Screen transitions */
+.screen{display:none;flex-direction:column;align-items:center;text-align:center;width:100%;max-width:660px}
+.screen.on{display:flex;animation:fadeUp .6s cubic-bezier(.16,1,.3,1) forwards}
+.screen.out{animation:fadeIn .3s ease reverse forwards}
+
+/* ═══════════════════════════════════════════
+   CREDITS / ABOUT OVERLAY
+═══════════════════════════════════════════ */
+.credits-overlay{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;opacity:0;pointer-events:none;transition:opacity .7s ease;background:rgba(2,5,10,.97)}
+.credits-overlay.open{opacity:1;pointer-events:all}
+.credits-inner{max-width:500px;width:100%;text-align:center;position:relative}
+
+/* Founder pearl */
+.founder-pearl{width:90px;height:90px;border-radius:50%;margin:0 auto 28px;position:relative;animation:breatheIdle 7s ease-in-out infinite}
+.fp-inner{position:absolute;inset:0;border-radius:50%;transition:background 2s}
+.fp-shine{position:absolute;width:36%;height:30%;top:13%;left:19%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.28),transparent 70%);transform:rotate(-30deg)}
+.fp-initial{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Playfair Display',serif;font-size:2rem;font-style:italic;color:rgba(255,255,255,.9);text-shadow:0 0 20px var(--wg)}
+
+.credits-kicker{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.45em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+.credits-name{font-family:'Playfair Display',serif;font-size:2.6rem;font-weight:400;color:var(--text);margin-bottom:4px;line-height:1.1}
+.credits-name em{font-style:italic;color:var(--accent)}
+.credits-sudo{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.25em;color:var(--muted);margin-bottom:28px}
+
+.credits-divider{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--wp),transparent);margin:0 auto 28px}
+
+.credits-title{font-family:'Playfair Display',serif;font-style:italic;font-size:1.1rem;color:var(--wp);margin-bottom:6px}
+.credits-club{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);margin-bottom:28px}
+
+.credits-statement{font-size:.88rem;color:var(--muted);font-weight:300;line-height:1.8;max-width:380px;margin:0 auto 28px;font-family:'Playfair Display',serif;font-style:italic}
+.credits-statement strong{color:var(--text);font-style:normal;font-weight:400}
+
+.credits-built{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:32px;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase}
+.credits-built-dot{width:6px;height:6px;border-radius:50%;background:var(--wp);animation:dotBlink 2s ease-in-out infinite}
+
+.credits-close{background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;padding:8px 24px;border-radius:20px;cursor:pointer;letter-spacing:.1em;transition:all .2s}
+.credits-close:hover{border-color:rgba(255,255,255,.25);color:var(--text)}
+
+/* Author mark in dojo header — subtle tap target */
+.author-mark{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;color:var(--muted);opacity:.4;cursor:pointer;transition:opacity .3s;text-transform:uppercase;user-select:none}
+.author-mark:hover{opacity:.8}
+
+</style>
+</head>
+<body class="w-ocean">
+<canvas id="bgCanvas"></canvas>
+
+<!-- ═══════════ PHASE 1: ONBOARDING ═══════════ -->
+<div class="phase active" id="phaseOnboard">
+  <div class="trail" id="trail">
+    <div class="tdot active" id="td0"></div><div class="tline" id="tl0"></div>
+    <div class="tdot" id="td1"></div><div class="tline" id="tl1"></div>
+    <div class="tdot" id="td2"></div><div class="tline" id="tl2"></div>
+    <div class="tdot" id="td3"></div>
+  </div>
+
+  <!-- Q0: World -->
+  <div class="screen on" id="q0">
+    <div class="kicker">Step 1 of 4</div>
+    <h2>Where do you feel <em>most like yourself?</em></h2>
+    <p class="sub">This becomes your home world. Your guide lives here with you.</p>
+    <div class="og c4">
+      <div class="ocard" data-v="ocean"     data-w="w-ocean"     data-e="🌊" onclick="pickWorld(this)"><div class="chk">✓</div><div class="oicon">🌊</div><div class="olabel">Ocean</div><div class="odesc">deep, vast, calm</div></div>
+      <div class="ocard" data-v="forest"    data-w="w-forest"    data-e="🌲" onclick="pickWorld(this)"><div class="chk">✓</div><div class="oicon">🌲</div><div class="olabel">Forest</div><div class="odesc">roots, paths, wild</div></div>
+      <div class="ocard" data-v="sky"       data-w="w-sky"       data-e="☁️" onclick="pickWorld(this)"><div class="chk">✓</div><div class="oicon">☁️</div><div class="olabel">Open Sky</div><div class="odesc">wind, light, free</div></div>
+      <div class="ocard" data-v="mountains" data-w="w-mountains" data-e="⛰️" onclick="pickWorld(this)"><div class="chk">✓</div><div class="oicon">⛰️</div><div class="olabel">Mountains</div><div class="odesc">peaks, silence, high</div></div>
+      <div class="ocard" data-v="field"     data-w="w-field"     data-e="🌾" onclick="pickWorld(this)"><div class="chk">✓</div><div class="oicon">🌾</div><div class="olabel">Open Field</div><div class="odesc">sport, run, free</div></div>
+      <div class="ocard" data-v="desert"    data-w="w-desert"    data-e="🏜️" onclick="pickWorld(this)"><div class="chk">✓</div><div class="oicon">🏜️</div><div class="olabel">Desert</div><div class="odesc">warm, still, endless</div></div>
+      <div class="ocard" data-v="city"      data-w="w-city"      data-e="🌃" onclick="pickWorld(this)"><div class="chk">✓</div><div class="oicon">🌃</div><div class="olabel">Night City</div><div class="odesc">lights, energy, alive</div></div>
+      <div class="ocard" data-v="space"     data-w="w-space"     data-e="🌌" onclick="pickWorld(this)"><div class="chk">✓</div><div class="oicon">🌌</div><div class="olabel">Space</div><div class="odesc">stars, infinite, quiet</div></div>
+    </div>
+    <button class="btn" id="btn0" onclick="advance(0)">that's my world →</button>
+  </div>
+
+  <!-- Q1: Animal -->
+  <div class="screen" id="q1">
+    <div class="kicker">Step 2 of 4</div>
+    <h2>Who will be your <em>guide?</em></h2>
+    <p class="sub">This creature watches over you. It never judges. It only helps you find your way.</p>
+    <div class="og c4">
+      <div class="ocard" data-v="owl"     data-e="🦉" data-n="Opowl"    onclick="pickAnimal(this)"><div class="chk">✓</div><div class="oicon">🦉</div><div class="olabel">The Owl</div><div class="odesc">wise, watchful, ancient</div></div>
+      <div class="ocard" data-v="wolf"    data-e="🐺" data-n="Wolven"   onclick="pickAnimal(this)"><div class="chk">✓</div><div class="oicon">🐺</div><div class="olabel">The Wolf</div><div class="odesc">loyal, fierce, free</div></div>
+      <div class="ocard" data-v="fox"     data-e="🦊" data-n="Foxen"    onclick="pickAnimal(this)"><div class="chk">✓</div><div class="oicon">🦊</div><div class="olabel">The Fox</div><div class="odesc">quick, clever, curious</div></div>
+      <div class="ocard" data-v="eagle"   data-e="🦅" data-n="Talon"    onclick="pickAnimal(this)"><div class="chk">✓</div><div class="oicon">🦅</div><div class="olabel">The Eagle</div><div class="odesc">sharp, high-seeing, bold</div></div>
+      <div class="ocard" data-v="bear"    data-e="🐻" data-n="Ursa"     onclick="pickAnimal(this)"><div class="chk">✓</div><div class="oicon">🐻</div><div class="olabel">The Bear</div><div class="odesc">grounded, strong, solid</div></div>
+      <div class="ocard" data-v="whale"   data-e="🐋" data-n="Wavern"   onclick="pickAnimal(this)"><div class="chk">✓</div><div class="oicon">🐋</div><div class="olabel">The Whale</div><div class="odesc">vast, gentle, patient</div></div>
+      <div class="ocard" data-v="panther" data-e="🐆" data-n="Nightpaw" onclick="pickAnimal(this)"><div class="chk">✓</div><div class="oicon">🐆</div><div class="olabel">The Panther</div><div class="odesc">silent, fluid, focused</div></div>
+      <div class="ocard" data-v="dragon"  data-e="🐉" data-n="Drakon"   onclick="pickAnimal(this)"><div class="chk">✓</div><div class="oicon">🐉</div><div class="olabel">The Dragon</div><div class="odesc">mythic, rare, yours</div></div>
+    </div>
+    <button class="btn" id="btn1" onclick="advance(1)">this is my guide →</button>
+  </div>
+
+  <!-- Q2: Wisdom object -->
+  <div class="screen" id="q2">
+    <div class="kicker">Step 3 of 4</div>
+    <h2>What will carry your <em>wisdom?</em></h2>
+    <p class="sub">You earn one of these every time you make it through a hard moment. They're yours forever.</p>
+    <div class="og c4">
+      <div class="ocard" data-v="pearl"   data-e="🫧" data-n="Pearl"    onclick="pickWisdom(this)"><div class="chk">✓</div><div class="oicon">🫧</div><div class="olabel">Pearl</div><div class="odesc">formed under pressure</div></div>
+      <div class="ocard" data-v="star"    data-e="⭐" data-n="Star"     onclick="pickWisdom(this)"><div class="chk">✓</div><div class="oicon">⭐</div><div class="olabel">Star</div><div class="odesc">far but always there</div></div>
+      <div class="ocard" data-v="seed"    data-e="🌱" data-n="Seed"     onclick="pickWisdom(this)"><div class="chk">✓</div><div class="oicon">🌱</div><div class="olabel">Seed</div><div class="odesc">small now, becoming</div></div>
+      <div class="ocard" data-v="ember"   data-e="🔥" data-n="Ember"    onclick="pickWisdom(this)"><div class="chk">✓</div><div class="oicon">🔥</div><div class="olabel">Ember</div><div class="odesc">lit even in the wind</div></div>
+      <div class="ocard" data-v="crystal" data-e="💎" data-n="Crystal"  onclick="pickWisdom(this)"><div class="chk">✓</div><div class="oicon">💎</div><div class="olabel">Crystal</div><div class="odesc">clear, strong, bright</div></div>
+      <div class="ocard" data-v="feather" data-e="🪶" data-n="Feather"  onclick="pickWisdom(this)"><div class="chk">✓</div><div class="oicon">🪶</div><div class="olabel">Feather</div><div class="odesc">light enough for anything</div></div>
+      <div class="ocard" data-v="rune"    data-e="🔮" data-n="Rune"     onclick="pickWisdom(this)"><div class="chk">✓</div><div class="oicon">🔮</div><div class="olabel">Rune</div><div class="odesc">ancient, mysterious</div></div>
+      <div class="ocard" data-v="coin"    data-e="🏅" data-n="Mark"     onclick="pickWisdom(this)"><div class="chk">✓</div><div class="oicon">🏅</div><div class="olabel">Gold Mark</div><div class="odesc">earned, never given</div></div>
+    </div>
+    <button class="btn" id="btn2" onclick="advance(2)">this is my symbol →</button>
+  </div>
+
+  <!-- Q3: Name -->
+  <div class="screen" id="q3">
+    <div class="kicker">Step 4 of 4</div>
+    <h2>What shall your guide <em>call you?</em></h2>
+    <p class="sub">Not your real name. Your name in this world.</p>
+    <div class="namewrap">
+      <input class="nameinput" id="nameInput" type="text" placeholder="your name here..." maxlength="22" oninput="onNameType()" autocomplete="off" spellcheck="false"/>
+    </div>
+    <div class="name-chips" id="nameChips"></div>
+    <button class="btn" id="btn3" onclick="goReveal()">this is who I am →</button>
+  </div>
+</div>
+
+<!-- ═══════════ PHASE 2: REVEAL ═══════════ -->
+<div class="phase" id="phaseReveal" style="justify-content:center;text-align:center">
+  <div class="kicker" style="margin-bottom:24px">your world is ready</div>
+  <div class="rev-bubble" id="revBubble">
+    <div class="rev-bubble-inner" id="revBubbleInner"></div>
+    <div class="rev-bubble-shine"></div>
+    <div class="rev-animal" id="revAnimal">🦉</div>
+  </div>
+  <h2 class="rev-name" id="revName"></h2>
+  <div class="rev-wisdom" id="revWisdom"></div>
+  <div class="rev-tags" id="revTags"></div>
+  <div class="pearl-stage">
+    <div class="pearl" id="revPearl" style="background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.5),var(--wp) 50%,rgba(0,0,0,.2) 100%);box-shadow:0 4px 20px var(--wg)"></div>
+    <div class="pearl-label" id="revPearlLabel">your first wisdom earned</div>
+  </div>
+  <p class="rev-greeting" id="revGreeting"></p>
+  <button class="btn always" onclick="enterDojo()">enter the dojo →</button>
+</div>
+
+<!-- ═══════════ PHASE 3: DOJO ═══════════ -->
+<div class="phase" id="phaseDojo">
+
+  <div class="dojo-header">
+    <div class="dojo-logo">Op<span>owl</span></div>
+    <div class="author-mark" onclick="openCredits()" title="about">by kacy lelly</div>
+    <div class="pearl-count">
+      <div class="pc-gems" id="pcGems">
+        <div class="pc-gem" id="gem0"></div>
+        <div class="pc-gem" id="gem1"></div>
+        <div class="pc-gem" id="gem2"></div>
+        <div class="pc-gem" id="gem3"></div>
+        <div class="pc-gem" id="gem4"></div>
+      </div>
+      <span id="pearlCountLabel">0 earned</span>
+    </div>
+  </div>
+
+  <!-- Breathing bubble -->
+  <div class="bubble-stage">
+    <div class="bring"></div><div class="bring"></div><div class="bring"></div>
+    <div class="bubble-glow-ring" id="glowRing"></div>
+    <div class="bubble" id="mainBubble">
+      <div class="bubble-inner" id="mainBubbleInner"></div>
+      <div class="bubble-shine"></div>
+      <div class="bubble-animal" id="mainAnimal">🦉</div>
+      <div class="sparkle-ring" id="sparkleRing">
+        <div class="sorb s1" id="sorb1"></div>
+        <div class="sorb s2" id="sorb2"></div>
+        <div class="sorb s3" id="sorb3"></div>
+        <div class="sorb s4" id="sorb4"></div>
+        <div class="sorb s5" id="sorb5"></div>
+      </div>
+    </div>
+    <div class="bubble-label" id="bubbleLabel">breathe</div>
+    <div class="hap-label" id="hapLabel">resting</div>
+  </div>
+
+  <!-- Chat input -->
+  <div class="dojo-input-area">
+    <div class="input-prompt" id="inputPrompt">what's going on right now?</div>
+    <div class="input-wrap">
+      <textarea id="userText" placeholder="no right way to say it — just let it out..." rows="3" maxlength="500"></textarea>
+      <div class="input-foot">
+        <div class="input-hint">no advice. only tools. only you.</div>
+        <button class="send-btn" id="sendBtn" onclick="handleSend()">let's go →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity cards -->
+  <div class="act-section" id="actSection">
+    <div class="act-head" id="actHead">pick what feels right</div>
+    <div class="act-grid" id="actGrid"></div>
+    <div class="mood-wrap" id="moodWrap">
+      <div class="mood-q" id="moodQ">how do you feel now vs when you arrived?</div>
+      <div class="mood-row">
+        <div class="mdot" title="lighter" onclick="logMood('lighter','✨ lighter')">✨</div>
+        <div class="mdot" title="same"    onclick="logMood('same','🌊 still moving')">🌊</div>
+        <div class="mdot" title="still"   onclick="logMood('still','🌀 still processing')">🌀</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Soul file -->
+  <div class="soul-strip" id="soulStrip">
+    <div class="soul-head"><div class="soul-pulse"></div>soul file — growing</div>
+    <div class="soul-words" id="soulWords"></div>
+  </div>
+</div>
+
+<!-- ═══════════ ACTIVITY OVERLAY ═══════════ -->
+<div class="overlay" id="expOverlay">
+  <button class="ov-close" onclick="closeExp()">← back</button>
+
+  <!-- Breather -->
+  <div id="xBreather" style="display:none;flex-direction:column;align-items:center;width:100%">
+    <div class="exp-stage">
+      <div class="exp-bubble" id="xbBubble"><div class="exp-bubble-inner" id="xbInner"></div><div class="exp-bubble-shine"></div><div class="exp-animal" id="xbAnimal"></div></div>
+    </div>
+    <div class="exp-instr" id="xbInstr">wave breather</div>
+    <div class="exp-sub" id="xbSub">follow the bubble — breathe with it</div>
+    <div class="exp-prog"><div class="exp-prog-bar" id="xbBar"></div></div>
+    <button class="exp-btn" id="xbBtn" onclick="startBreather()">begin</button>
+  </div>
+
+  <!-- Mission -->
+  <div id="xMission" style="display:none;flex-direction:column;align-items:center;width:100%;position:relative">
+    <!-- Active timer view -->
+    <div id="xmTimerView" style="display:flex;flex-direction:column;align-items:center;width:100%">
+      <div class="exp-stage" style="width:150px;height:150px">
+        <div class="exp-bubble" style="width:125px;height:125px"><div class="exp-bubble-inner" id="xmInner" style="animation:breatheIdle 5s ease-in-out infinite"></div><div class="exp-bubble-shine"></div><div class="exp-animal" id="xmAnimal" style="font-size:2rem"></div></div>
+      </div>
+      <div class="exp-instr">your only mission</div>
+      <div class="mission-box"><div class="m-label">right now · just this</div><div class="m-text" id="xmText">one thing</div></div>
+      <div class="m-timer" id="xmTimer">5:00</div>
+      <div class="skip-hint" id="xmSkipHint" style="display:none">pop bubbles to skip ahead · each one = 10 seconds</div>
+      <button class="exp-btn" id="xmBtn" onclick="startMission()">accept the mission</button>
+      <button class="m-skip-btn" id="xmSkipBtn" style="display:none" onclick="skipMissionAhead()">skip ahead →</button>
+    </div>
+    <!-- Feeling section — shown after timer -->
+    <div class="feel-section" id="xmFeelSection">
+      <div class="exp-stage" style="width:130px;height:130px;margin-bottom:16px">
+        <div class="exp-bubble" style="width:108px;height:108px"><div class="exp-bubble-inner" id="xmFeelInner"></div><div class="exp-bubble-shine"></div><div class="exp-animal" id="xmFeelAnimal" style="font-size:1.8rem"></div></div>
+      </div>
+      <div class="exp-instr" style="font-size:1.3rem;margin-bottom:6px">mission done</div>
+      <div class="feel-prompt" id="xmFeelPrompt">write one sentence about how you feel right now — not how you should feel. how you actually feel.</div>
+      <textarea class="feel-input" id="xmFeelInput" placeholder="right now i feel..." maxlength="200" rows="3"></textarea>
+      <button class="feel-submit" onclick="submitFeeling()">save that →</button>
+    </div>
+  </div>
+
+  <!-- Visualization -->
+  <div id="xViz" style="display:none;flex-direction:column;align-items:center;width:100%">
+    <div class="exp-stage">
+      <div class="exp-bubble"><div class="exp-bubble-inner" id="xvInner" style="animation:breatheIdle 8s ease-in-out infinite"></div><div class="exp-bubble-shine"></div><div class="exp-animal" id="xvAnimal"></div></div>
+    </div>
+    <div class="exp-instr" id="xvInstr">close your eyes</div>
+    <div class="exp-sub" id="xvSub">take one slow breath first...</div>
+    <button class="exp-btn" id="xvBtn" onclick="startViz()">i'm ready</button>
+  </div>
+
+  <!-- Grounding -->
+  <div id="xGround" style="display:none;flex-direction:column;align-items:center;width:100%">
+    <div class="exp-instr">come back to now</div>
+    <div class="exp-sub">your senses are an anchor. one at a time.</div>
+    <div class="sense-list" id="xgList"></div>
+    <button class="exp-btn" id="xgBtn" onclick="stepGround()">start</button>
+  </div>
+
+  <!-- Word anchor -->
+  <div id="xWord" style="display:none;flex-direction:column;align-items:center;width:100%">
+    <div class="exp-stage" style="width:140px;height:140px">
+      <div class="exp-bubble" style="width:116px;height:116px"><div class="exp-bubble-inner" id="xwInner" style="animation:breatheIdle 6s ease-in-out infinite"></div><div class="exp-bubble-shine"></div><div class="exp-animal" id="xwAnimal" style="font-size:1.8rem"></div></div>
+    </div>
+    <div class="exp-instr">word anchor</div>
+    <div class="exp-sub">tap each word slowly. say it quietly as you tap.</div>
+    <div class="word-row" id="xwWords"></div>
+    <div class="exp-sub" id="xwFeedback" style="color:var(--accent);min-height:24px"></div>
+  </div>
+</div>
+
+<!-- Pearl earned celebration -->
+<div class="pearl-earned" id="pearlEarned">
+  <div class="pe-pearl" id="pePearl"></div>
+  <div class="pe-title" id="peTitle">wisdom earned</div>
+  <div class="pe-sub" id="peSub">you made it through</div>
+  <button class="pe-close" onclick="closePearlEarned()">back to the dojo</button>
+</div>
+
+
+<!-- ═══════════ CREDITS OVERLAY ═══════════ -->
+<div class="credits-overlay" id="creditsOverlay">
+  <div class="credits-inner">
+    <div class="founder-pearl">
+      <div class="fp-inner" id="fpInner"></div>
+      <div class="fp-shine"></div>
+      <div class="fp-initial">K</div>
+    </div>
+
+    <div class="credits-kicker">founder &amp; creator</div>
+    <div class="credits-name"><em>Kacy Lelly</em></div>
+    <div class="credits-sudo">( Lacy Kelly — CEO, The Wee Pearl Club )</div>
+
+    <div class="credits-divider"></div>
+
+    <div class="credits-title">designed from idea, centre &amp; mind</div>
+    <div class="credits-club">The Wee Pearl Club · Youth Wellbeing</div>
+
+    <p class="credits-statement">
+      This world was born from a <strong>teenager's mind</strong> — 
+      the tools, the guides, the pearls of guidance, the breathing bubble, 
+      the soul file. Every piece of it.<br><br>
+      <strong>Claude</strong> was the agentic resource and build companion 
+      that made the invisible visible. The idea was always <strong>Kacy's</strong>.
+    </p>
+
+    <div class="credits-built">
+      <div class="credits-built-dot"></div>
+      <span>idea &amp; vision · Kacy Lelly</span>
+      <div class="credits-built-dot" style="animation-delay:.4s"></div>
+      <span>built with Claude · Anthropic</span>
+      <div class="credits-built-dot" style="animation-delay:.8s"></div>
+    </div>
+
+    <button class="credits-close" onclick="closeCredits()">back to the dojo</button>
+  </div>
+</div>
+
+<div class="disclaimer">opowl is a focus dojo, not a clinic · if things feel too big, real humans are good at this · 988 · crisistextline.org</div>
+
+<script>
+/* ════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════ */
+const S = {
+  world:'ocean', worldClass:'w-ocean', worldEmoji:'🌊',
+  animal:'owl', animalEmoji:'🦉', animalName:'Opowl',
+  wisdom:'pearl', wisdomEmoji:'🫧', wisdomName:'Pearl',
+  name:'',
+  pearls:0,
+  soulFile:[],
+  userContext:''
+};
+
+/* ════════════════════════════════════════════
+   BACKGROUND CANVAS
+════════════════════════════════════════════ */
+const cvs = document.getElementById('bgCanvas');
+const cx  = cvs.getContext('2d');
+let pts = [];
+
+function resizeCvs(){cvs.width=innerWidth;cvs.height=innerHeight}
+resizeCvs();addEventListener('resize',resizeCvs);
+
+function spawnPt(){
+  pts.push({x:Math.random()*cvs.width,y:cvs.height+8,sz:1+Math.random()*2.5,spd:.3+Math.random()*.8,drift:(Math.random()-.5)*.5,life:1,decay:.003+Math.random()*.005});
+}
+function drawCvs(){
+  cx.clearRect(0,0,cvs.width,cvs.height);
+  const style=getComputedStyle(document.body);
+  const wg=style.getPropertyValue('--wg').trim()||'rgba(26,159,168,.2)';
+  const g=cx.createLinearGradient(0,0,0,cvs.height);
+  g.addColorStop(0,'#03070d');g.addColorStop(1,'#000');
+  cx.fillStyle=g;cx.fillRect(0,0,cvs.width,cvs.height);
+  const bg=cx.createRadialGradient(cvs.width*.3,cvs.height*.45,0,cvs.width*.3,cvs.height*.45,cvs.width*.45);
+  bg.addColorStop(0,wg);bg.addColorStop(1,'transparent');
+  cx.fillStyle=bg;cx.fillRect(0,0,cvs.width,cvs.height);
+  if(Math.random()<.07&&pts.length<70)spawnPt();
+  pts=pts.filter(p=>p.life>0);
+  const wpt=style.getPropertyValue('--wpt').trim()||'rgba(77,208,225,.5)';
+  pts.forEach(p=>{p.y-=p.spd;p.x+=p.drift;p.life-=p.decay;cx.globalAlpha=p.life*.55;cx.fillStyle=wpt;cx.beginPath();cx.arc(p.x,p.y,p.sz,0,Math.PI*2);cx.fill()});
+  cx.globalAlpha=1;
+  requestAnimationFrame(drawCvs);
+}
+drawCvs();
+
+/* ════════════════════════════════════════════
+   WORLD THEMES
+════════════════════════════════════════════ */
+const WORLD_COLORS={
+  ocean:    {from:'#1a9fa8',via:'#061828',glow:'rgba(26,159,168,.6)'},
+  forest:   {from:'#3da86e',via:'#0a2014',glow:'rgba(61,168,110,.6)'},
+  sky:      {from:'#5b8fe8',via:'#0a1630',glow:'rgba(91,143,232,.6)'},
+  mountains:{from:'#7aa8c0',via:'#0a1a22',glow:'rgba(122,168,192,.6)'},
+  field:    {from:'#8bc04a',via:'#101a06',glow:'rgba(139,192,74,.6)'},
+  desert:   {from:'#c9943a',via:'#221408',glow:'rgba(201,148,58,.6)'},
+  city:     {from:'#9b7ec8',via:'#10081e',glow:'rgba(155,126,200,.6)'},
+  space:    {from:'#c0a0e8',via:'#06040e',glow:'rgba(192,160,232,.6)'},
+};
+
+function bubbleStyle(elInner,world){
+  const c=WORLD_COLORS[world]||WORLD_COLORS.ocean;
+  elInner.style.background=`radial-gradient(circle at 35% 30%,rgba(255,255,255,.28) 0%,transparent 40%),radial-gradient(circle at 50% 50%,${c.from} 0%,${c.via} 65%,#010508 100%)`;
+  elInner.style.boxShadow=`0 0 50px ${c.glow},0 0 100px ${c.glow.replace('.6','.25')}`;
+}
+
+function applyWorldTheme(world){
+  document.body.className=S.worldClass||'w-ocean';
+}
+
+/* ════════════════════════════════════════════
+   ONBOARDING PICKS
+════════════════════════════════════════════ */
+function pickWorld(card){
+  card.parentElement.querySelectorAll('.ocard').forEach(c=>c.classList.remove('sel'));
+  card.classList.add('sel');
+  S.world=card.dataset.v; S.worldClass=card.dataset.w; S.worldEmoji=card.dataset.e;
+  document.body.className=S.worldClass;
+  document.getElementById('btn0').classList.add('on');
+}
+function pickAnimal(card){
+  card.parentElement.querySelectorAll('.ocard').forEach(c=>c.classList.remove('sel'));
+  card.classList.add('sel');
+  S.animal=card.dataset.v; S.animalEmoji=card.dataset.e; S.animalName=card.dataset.n;
+  document.getElementById('btn1').classList.add('on');
+}
+function pickWisdom(card){
+  card.parentElement.querySelectorAll('.ocard').forEach(c=>c.classList.remove('sel'));
+  card.classList.add('sel');
+  S.wisdom=card.dataset.v; S.wisdomEmoji=card.dataset.e; S.wisdomName=card.dataset.n;
+  document.getElementById('btn2').classList.add('on');
+}
+function onNameType(){
+  S.name=document.getElementById('nameInput').value.trim();
+  document.getElementById('btn3').classList.toggle('on',S.name.length>=2);
+}
+
+/* ════════════════════════════════════════════
+   SCREEN ADVANCE
+════════════════════════════════════════════ */
+const TRAIL_IDS=[['td0','tl0'],['td1','tl1'],['td2','tl2'],['td3']];
+
+function advance(from){
+  const cur=document.getElementById(`q${from}`);
+  const nxt=document.getElementById(`q${from+1}`);
+  cur.classList.remove('on');
+  setTimeout(()=>{
+    cur.style.display='none';
+    nxt.style.display='flex';
+    nxt.classList.add('on');
+    document.getElementById(`td${from}`).classList.remove('active');
+    document.getElementById(`td${from}`).classList.add('done');
+    document.getElementById(`tl${from}`).classList.add('done');
+    document.getElementById(`td${from+1}`).classList.add('active');
+    if(from+1===3) populateNameSuggestions();
+  },320);
+}
+
+const NAME_POOL={
+  ocean:['Coral','Tidal','Noctua','Ophelia','Maren','Caspian','Lunaire','Waverly'],
+  forest:['Briar','Rowan','Fern','Aldwyn','Sylva','Moss','Hazel','Wren'],
+  sky:['Zephyr','Solène','Aerie','Cirrus','Alto','Drift','Lumen','Skye'],
+  mountains:['Crag','Slate','Oryn','Summit','Kira','Vale','Ridge','Sable'],
+  field:['Heath','Chase','Scout','Flint','Rune','Blaze','Ash','Reed'],
+  desert:['Dune','Amber','Sirocco','Lark','Cinder','Asha','Zara','Sol'],
+  city:['Neon','Riven','Lux','Vex','Cipher','Nyx','Axel','Riot'],
+  space:['Lyra','Nova','Vega','Orbit','Cosmo','Astral','Celeste','Quasar'],
+};
+
+function populateNameSuggestions(){
+  const pool=(NAME_POOL[S.world]||NAME_POOL.ocean).slice().sort(()=>Math.random()-.5).slice(0,6);
+  const el=document.getElementById('nameChips');
+  el.innerHTML='';
+  pool.forEach(n=>{
+    const c=document.createElement('div');
+    c.className='nchip'; c.textContent=n;
+    c.onclick=()=>{
+      el.querySelectorAll('.nchip').forEach(x=>x.classList.remove('picked'));
+      c.classList.add('picked');
+      document.getElementById('nameInput').value=n;
+      S.name=n;
+      document.getElementById('btn3').classList.add('on');
+    };
+    el.appendChild(c);
+  });
+}
+
+/* ════════════════════════════════════════════
+   REVEAL
+════════════════════════════════════════════ */
+const GREETINGS={
+  owl:(n,w)=>`Your owl watches from the ${w}. Still. Patient. Ready whenever you are, ${n}.`,
+  wolf:(n,w)=>`Your wolf runs the ${w}. It always finds you. Just call, ${n}.`,
+  fox:(n,w)=>`Your fox knows every path through the ${w}. Follow its light, ${n}.`,
+  eagle:(n,w)=>`Your eagle circles above the ${w}. It sees further than you can right now, ${n}.`,
+  bear:(n,w)=>`Your bear holds the ${w} steady. When you need solid ground, it's there, ${n}.`,
+  whale:(n,w)=>`Your whale moves through the ${w} with ancient patience. It carries you, ${n}.`,
+  panther:(n,w)=>`Your panther moves silent through the ${w}. It never leaves your side, ${n}.`,
+  dragon:(n,w)=>`Your dragon rules the ${w}. Rare. Mythic. Yours, ${n}.`,
+};
+
+function goReveal(){
+  S.name=document.getElementById('nameInput').value.trim()||'Wanderer';
+  // Transition phases
+  document.getElementById('phaseOnboard').classList.remove('active');
+  document.getElementById('phaseReveal').classList.add('active');
+  // Populate reveal
+  const c=WORLD_COLORS[S.world]||WORLD_COLORS.ocean;
+  const inner=document.getElementById('revBubbleInner');
+  inner.style.background=`radial-gradient(circle at 35% 30%,rgba(255,255,255,.28) 0%,transparent 40%),radial-gradient(circle at 50% 50%,${c.from} 0%,${c.via} 65%,#010508 100%)`;
+  inner.style.boxShadow=`0 0 60px ${c.glow},0 0 120px ${c.glow.replace('.6','.3')}`;
+  document.getElementById('revAnimal').textContent=S.animalEmoji;
+  document.getElementById('revName').textContent=S.name;
+  document.getElementById('revWisdom').textContent=`${S.wisdomEmoji} first ${S.wisdomName} not yet earned`;
+  const tags=document.getElementById('revTags');
+  tags.innerHTML=[`${S.worldEmoji} ${S.world}`,`${S.animalEmoji} ${S.animalName}`,`${S.wisdomEmoji} ${S.wisdomName} collector`].map(t=>`<div class="rtag">${t}</div>`).join('');
+  document.getElementById('revGreeting').textContent=(GREETINGS[S.animal]||GREETINGS.owl)(S.name,S.world);
+  // Drop first pearl after delay
+  setTimeout(()=>{
+    const p=document.getElementById('revPearl');
+    p.style.background=`radial-gradient(circle at 35% 30%,rgba(255,255,255,.5),${c.from} 50%,rgba(0,0,0,.2) 100%)`;
+    p.style.boxShadow=`0 4px 20px ${c.glow}`;
+    p.classList.add('drop');
+    S.pearls=1; // onboarding completion pearl
+    document.getElementById('revWisdom').textContent=`${S.wisdomEmoji} first ${S.wisdomName} earned`;
+  },700);
+}
+
+function enterDojo(){
+  document.getElementById('phaseReveal').classList.remove('active');
+  document.getElementById('phaseDojo').classList.add('active');
+  initDojo();
+}
+
+/* ════════════════════════════════════════════
+   DOJO INIT
+════════════════════════════════════════════ */
+function initDojo(){
+  // Set bubble
+  bubbleStyle(document.getElementById('mainBubbleInner'),S.world);
+  document.getElementById('mainAnimal').textContent=S.animalEmoji;
+  document.getElementById('mainBubble').style.animation='breatheIdle 6s ease-in-out infinite';
+  // Pearl display
+  updatePearlDisplay();
+  // Greeting in prompt
+  document.getElementById('inputPrompt').textContent=`what's on your mind, ${S.name}?`;
+}
+
+function updatePearlDisplay(){
+  const gems=document.querySelectorAll('.pc-gem');
+  gems.forEach((g,i)=>g.classList.toggle('lit',i<S.pearls));
+  document.getElementById('pearlCountLabel').textContent=`${S.pearls} earned`;
+}
+
+/* ════════════════════════════════════════════
+   SEND & AI CALL
+════════════════════════════════════════════ */
+document.getElementById('userText').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend();}
+});
+
+async function handleSend(){
+  const txt=document.getElementById('userText').value.trim();
+  if(!txt)return;
+  S.userContext=txt;
+  // Extract soul word from what they typed
+  extractSoulWord(txt);
+  // Bubble thinking
+  document.getElementById('mainBubble').style.animation='thinking 2.5s ease-in-out infinite';
+  document.getElementById('bubbleLabel').innerHTML='<span class="ldots"><span></span><span></span><span></span></span>';
+  document.getElementById('inputPrompt').textContent='sitting with that...';
+  document.getElementById('sendBtn').disabled=true;
+  const acts=await getActivities(txt);
+  renderActivities(acts);
+}
+
+async function getActivities(txt){
+  const sys=`You are the voice of Opowl — a teen mental focus companion. The teen just shared something. Read the emotional energy (NOT a clinical diagnosis) and choose 4 short activities from this list: breather, mission, visualization, ground, word_anchor.
+
+Return ONLY valid JSON (no markdown):
+{"activities":[{"id":"breather|mission|visualization|ground|word_anchor","emoji":"emoji","title":"short title","tagline":"one line, warm, specific to what they said, peer-toned, never clinical","duration":"2 min|3 min|5 min"}]}
+
+Their world is: ${S.world}. Their guide is: a ${S.animal}. Make taglines feel personal to what they said. Never use therapy language. Speak like a wise older sibling.`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system:sys,messages:[{role:'user',content:txt}]})});
+    const d=await r.json();
+    const raw=d.content?.[0]?.text||'';
+    return JSON.parse(raw.replace(/```json|```/g,'').trim()).activities||defaultActs();
+  }catch{return defaultActs();}
+}
+
+function defaultActs(){
+  return[
+    {id:'breather',emoji:'🌊',title:'Wave Breather',tagline:`breathe with your ${S.animal} — 4 cycles`,duration:'3 min'},
+    {id:'mission',emoji:'🎯',title:'The Mission',tagline:'one tiny target. nothing else for 5 minutes.',duration:'5 min'},
+    {id:'ground',emoji:'✋',title:'5-4-3-2-1',tagline:'pull yourself back into this room, right now',duration:'2 min'},
+    {id:'word_anchor',emoji:'🔤',title:'Word Anchor',tagline:'tap through focus words until you land',duration:'2 min'},
+  ];
+}
+
+function renderActivities(acts){
+  const grid=document.getElementById('actGrid');
+  grid.innerHTML='';
+  acts.forEach((a,i)=>{
+    const d=document.createElement('div');
+    d.className='acard';
+    d.innerHTML=`<div class="ac-emoji">${a.emoji}</div><div class="ac-title">${a.title}<span class="ac-dur">${a.duration}</span></div><div class="ac-tag">${a.tagline}</div>`;
+    d.onclick=()=>launchActivity(a);
+    grid.appendChild(d);
+    setTimeout(()=>d.classList.add('in'),60+i*90);
+  });
+  document.getElementById('actSection').classList.add('show');
+  document.getElementById('soulStrip').classList.add('show');
+  document.getElementById('mainBubble').style.animation='breatheIdle 5s ease-in-out infinite';
+  document.getElementById('bubbleLabel').textContent='pick a tool';
+  document.getElementById('inputPrompt').textContent='choose what feels right ↓';
+  document.getElementById('sendBtn').disabled=false;
+  setTimeout(()=>document.getElementById('moodWrap').classList.add('show'),3000);
+}
+
+/* ════════════════════════════════════════════
+   SOUL FILE
+════════════════════════════════════════════ */
+const POSITIVE_ANCHORS=['calm','focus','safe','steady','clear','okay','good','here','breathe','easy','better','still','quiet','rest','fine','strong','ready'];
+
+function extractSoulWord(txt){
+  const words=txt.toLowerCase().split(/\s+/);
+  // Look for concrete nouns / positive hints
+  const candidates=words.filter(w=>w.length>3&&!/hate|bad|terrible|can't|never|worst|stupid|fail|awful|scared/.test(w));
+  if(candidates.length&&S.soulFile.length<20){
+    const pick=candidates[Math.floor(Math.random()*candidates.length)].replace(/[^a-z]/g,'');
+    if(pick&&!S.soulFile.includes(pick)){
+      S.soulFile.push(pick);
+      renderSoulWord(pick,true);
+    }
+  }
+}
+
+function renderSoulWord(word,isNew){
+  const el=document.createElement('div');
+  el.className='sword'+(isNew?' new-word':'');
+  el.textContent=word;
+  document.getElementById('soulWords').appendChild(el);
+}
+
+/* ════════════════════════════════════════════
+   MOOD LOG
+════════════════════════════════════════════ */
+const MOOD_REPLIES={
+  lighter:`lighter. that's real. come back whenever, ${()=>S.name}.`,
+  same:'sometimes just showing up is the whole thing.',
+  still:"still moving through it. that counts too."
+};
+function logMood(key,label){
+  const wrap=document.getElementById('moodWrap');
+  const replies={
+    lighter:`lighter. that's real. come back whenever, ${S.name}.`,
+    same:'sometimes just showing up is the whole thing.',
+    still:"still moving through it. that counts too."
+  };
+  wrap.innerHTML=`<div class="mood-q" style="color:var(--wp);font-style:normal">${replies[key]}</div>`;
+}
+
+/* ════════════════════════════════════════════
+   ACTIVITY LAUNCHER
+════════════════════════════════════════════ */
+let expTimers=[];
+let missionInterval=null;
+
+function clearExpTimers(){expTimers.forEach(t=>clearTimeout(t));expTimers=[];}
+
+function launchActivity(act){
+  const ov=document.getElementById('expOverlay');
+  ['xBreather','xMission','xViz','xGround','xWord'].forEach(id=>document.getElementById(id).style.display='none');
+  ov.classList.add('open');
+  const map={breather:initBreather,mission:initMission,visualization:initViz,ground:initGround,word_anchor:initWord};
+  (map[act.id]||initBreather)();
+}
+
+function closeExp(){
+  document.getElementById('expOverlay').classList.remove('open');
+  clearExpTimers();
+  clearPopBubbles();
+  if(missionInterval){clearInterval(missionInterval);missionInterval=null;}
+}
+
+function awardPearl(title,sub){
+  closeExp();
+  S.pearls=Math.min(S.pearls+1,5);
+  updatePearlDisplay();
+  const c=WORLD_COLORS[S.world]||WORLD_COLORS.ocean;
+  const pe=document.getElementById('pePearl');
+  pe.style.background=`radial-gradient(circle at 35% 30%,rgba(255,255,255,.5),${c.from} 50%,rgba(0,0,0,.2) 100%)`;
+  pe.style.boxShadow=`0 6px 30px ${c.glow}`;
+  document.getElementById('peTitle').textContent=`${S.wisdomEmoji} ${title||'wisdom earned'}`;
+  document.getElementById('peSub').textContent=sub||`you made it through, ${S.name}`;
+  document.getElementById('pearlEarned').classList.add('show');
+  // Add to soul file
+  const anchors=['here','steady','done','through','calm','okay'];
+  const w=anchors[Math.floor(Math.random()*anchors.length)];
+  if(!S.soulFile.includes(w)){S.soulFile.push(w);renderSoulWord(w,true);}
+}
+
+function closePearlEarned(){
+  document.getElementById('pearlEarned').classList.remove('show');
+  document.getElementById('pePearl').classList.remove('drop');
+  setTimeout(()=>document.getElementById('pePearl').classList.add('drop'),50);
+}
+
+/* ════════════════════════════════════════════
+   BREATHER
+════════════════════════════════════════════ */
+let breathRunning=false,breathCount=0;
+const BREATH_CYCLES=4;
+
+function initBreather(){
+  const el=document.getElementById('xBreather');
+  el.style.display='flex';
+  bubbleStyle(document.getElementById('xbInner'),S.world);
+  document.getElementById('xbAnimal').textContent=S.animalEmoji;
+  document.getElementById('xbBubble').style.animation='breatheIdle 6s ease-in-out infinite';
+  document.getElementById('xbInstr').textContent='wave breather';
+  document.getElementById('xbSub').textContent=`breathe with your ${S.animal}`;
+  document.getElementById('xbBar').style.width='0%';
+  document.getElementById('xbBar').style.transition='none';
+  document.getElementById('xbBtn').style.display='block';
+  breathRunning=false; breathCount=0;
+}
+
+function startBreather(){
+  document.getElementById('xbBtn').style.display='none';
+  breathRunning=true; breathCount=0;
+  runBreathCycle();
+}
+
+function runBreathCycle(){
+  if(!breathRunning||breathCount>=BREATH_CYCLES){finishBreather();return;}
+  breathCount++;
+  const bub=document.getElementById('xbBubble');
+  const bar=document.getElementById('xbBar');
+  const instr=document.getElementById('xbInstr');
+  const sub=document.getElementById('xbSub');
+  bar.style.transition='none';
+  bar.style.width=(((breathCount-1)/BREATH_CYCLES)*100)+'%';
+  // IN 4s
+  instr.textContent='breathe in';sub.textContent='slowly... through your nose...';
+  bub.style.animation='none';void bub.offsetWidth;bub.style.animation='breatheIn 4s ease-in forwards';
+  const t1=setTimeout(()=>{
+    // HOLD 2s
+    instr.textContent='hold';sub.textContent='just a moment...';
+    bub.style.animation='breatheHold 2s ease forwards';
+    const t2=setTimeout(()=>{
+      // OUT 6s
+      instr.textContent='breathe out';sub.textContent='all the way... slow and long...';
+      bub.style.animation='breatheOut 6s ease-out forwards';
+      const t3=setTimeout(()=>{instr.textContent='...';sub.textContent='';const t4=setTimeout(runBreathCycle,800);expTimers.push(t4);},6000);
+      expTimers.push(t3);
+    },2000);expTimers.push(t2);
+  },4000);expTimers.push(t1);
+}
+
+function finishBreather(){
+  document.getElementById('xbInstr').textContent='well done';
+  document.getElementById('xbSub').textContent='your nervous system just reset. feel the difference?';
+  document.getElementById('xbBar').style.transition='width .5s ease';
+  document.getElementById('xbBar').style.width='100%';
+  document.getElementById('xbBubble').style.animation='breatheIdle 6s ease-in-out infinite';
+  const t=setTimeout(()=>awardPearl('breath taken','four full cycles. that was real work.'),2500);
+  expTimers.push(t);
+}
+
+/* ════════════════════════════════════════════
+   MISSION
+════════════════════════════════════════════ */
+const MISSIONS=[
+  'write down just the first 3 things you need to do — nothing else',
+  'open one tab. one notebook. one pen. that is your entire world for 5 minutes.',
+  'pick the smallest possible piece of the thing you\'ve been avoiding. just that piece.',
+  'write one sentence about how you want to feel when this session ends.',
+  'close everything except what you actually need right now.',
+];
+let missionSecs=300;
+let popBubbles=[];
+let popSpawnInterval=null;
+
+function initMission(){
+  const el=document.getElementById('xMission');
+  el.style.display='flex';
+  bubbleStyle(document.getElementById('xmInner'),S.world);
+  document.getElementById('xmAnimal').textContent=S.animalEmoji;
+  missionSecs=300;
+  document.getElementById('xmTimer').textContent='5:00';
+  document.getElementById('xmText').textContent=MISSIONS[Math.floor(Math.random()*MISSIONS.length)];
+  document.getElementById('xmBtn').textContent='accept the mission';
+  document.getElementById('xmBtn').onclick=startMission;
+  document.getElementById('xmBtn').style.display='block';
+  document.getElementById('xmSkipBtn').style.display='none';
+  document.getElementById('xmSkipHint').style.display='none';
+  document.getElementById('xmTimerView').style.display='flex';
+  document.getElementById('xmFeelSection').classList.remove('show');
+  clearPopBubbles();
+}
+
+function startMission(){
+  document.getElementById('xmBtn').style.display='none';
+  document.getElementById('xmSkipBtn').style.display='block';
+  document.getElementById('xmSkipHint').style.display='block';
+  if(missionInterval)clearInterval(missionInterval);
+  spawnPopBubbles();
+  missionInterval=setInterval(()=>{
+    missionSecs--;
+    const m=Math.floor(missionSecs/60),s=missionSecs%60;
+    document.getElementById('xmTimer').textContent=`${m}:${s.toString().padStart(2,'0')}`;
+    if(missionSecs<=0){
+      clearInterval(missionInterval);missionInterval=null;
+      clearPopBubbles();
+      showFeelingSection();
+    }
+  },1000);
+}
+
+function skipMissionAhead(){
+  missionSecs=Math.max(0,missionSecs-10);
+  // flash the timer
+  const t=document.getElementById('xmTimer');
+  t.style.color='var(--accent)';
+  setTimeout(()=>t.style.color='',400);
+}
+
+/* ── POP BUBBLES ── */
+function spawnPopBubbles(){
+  clearPopBubbles();
+  // spawn a new floaty bubble every 1.4s
+  popSpawnInterval=setInterval(()=>{
+    const ov=document.getElementById('expOverlay');
+    if(!ov.classList.contains('open'))return;
+    const b=document.createElement('div');
+    b.className='pop-bub';
+    const sz=32+Math.random()*44;
+    const c=WORLD_COLORS[S.world]||WORLD_COLORS.ocean;
+    b.style.cssText=`
+      width:${sz}px;height:${sz}px;
+      left:${4+Math.random()*86}%;
+      bottom:-80px;
+      background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.35),${c.from}88 55%,${c.via}55 100%);
+      box-shadow:0 0 ${sz*.4}px ${c.glow},inset 0 0 ${sz*.2}px rgba(255,255,255,.15);
+      border:1px solid rgba(255,255,255,.2);
+      animation:bubbleFloat ${4+Math.random()*5}s ease-in forwards;
+    `;
+    b.textContent=sz>50?'+10s':'';
+    b.onclick=function(e){
+      if(b.classList.contains('burst'))return;
+      b.classList.add('burst');
+      skipMissionAhead();
+      // mini pop ring
+      const ring=document.createElement('div');
+      ring.style.cssText=`position:fixed;left:${e.clientX}px;top:${e.clientY}px;width:${sz}px;height:${sz}px;border-radius:50%;border:2px solid ${c.from};transform:translate(-50%,-50%) scale(1);opacity:1;pointer-events:none;z-index:120;transition:transform .4s ease,opacity .4s ease;`;
+      document.body.appendChild(ring);
+      requestAnimationFrame(()=>{ring.style.transform='translate(-50%,-50%) scale(2.5)';ring.style.opacity='0';});
+      setTimeout(()=>{ring.remove();b.remove();popBubbles=popBubbles.filter(x=>x!==b);},450);
+    };
+    document.body.appendChild(b);
+    popBubbles.push(b);
+    // clean up after float
+    setTimeout(()=>{if(b.parentElement)b.remove();popBubbles=popBubbles.filter(x=>x!==b);},10000);
+  },1400);
+}
+
+function clearPopBubbles(){
+  if(popSpawnInterval){clearInterval(popSpawnInterval);popSpawnInterval=null;}
+  popBubbles.forEach(b=>{if(b.parentElement)b.remove();});
+  popBubbles=[];
+}
+
+/* ── FEELING SECTION ── */
+function showFeelingSection(){
+  document.getElementById('xmTimerView').style.display='none';
+  const fs=document.getElementById('xmFeelSection');
+  fs.classList.add('show');
+  bubbleStyle(document.getElementById('xmFeelInner'),S.world);
+  document.getElementById('xmFeelAnimal').textContent=S.animalEmoji;
+  document.getElementById('xmFeelInput').value='';
+  // Personalise prompt slightly
+  const prompts=[
+    'write one sentence about how you feel right now — not how you should feel. how you actually feel.',
+    `one sentence, ${S.name}. what landed during those five minutes?`,
+    'the mission is done. what's sitting with you right now — one sentence.',
+    'just one line. how do you feel on the other side of that?',
+  ];
+  document.getElementById('xmFeelPrompt').textContent=prompts[Math.floor(Math.random()*prompts.length)];
+}
+
+function submitFeeling(){
+  const val=document.getElementById('xmFeelInput').value.trim();
+  // Save to soul file if there's content
+  if(val&&val.length>2){
+    const words=val.toLowerCase().split(/\s+/).filter(w=>w.length>3&&!S.soulFile.includes(w));
+    if(words.length){
+      const pick=words[0].replace(/[^a-z]/g,'');
+      if(pick){S.soulFile.push(pick);renderSoulWord(pick,true);}
+    }
+  }
+  awardPearl('mission complete','five minutes of focus. and you wrote it down. that was real.');
+}
+
+/* ════════════════════════════════════════════
+   VISUALIZATION
+════════════════════════════════════════════ */
+const VIZ_SCRIPTS=[
+  ['close your eyes...','picture somewhere quiet — a room, a bench, anywhere safe to you','you have just finished the thing that\'s been sitting on you','notice your shoulders — they\'ve dropped. the weight has gone.','you don\'t need to know how you got there. you\'re just there.','stay in that feeling. this is what the other side feels like.','you can get back here. one step at a time.','open your eyes whenever you\'re ready.'],
+  ['soften your gaze or close your eyes...','take one long breath out — let everything go with it','imagine watching yourself from above, like a bird looking down','from up here, the thing that\'s stressing you looks smaller','it still exists. but so does all the space around it.','bring that wider view back with you as you zoom in slowly','you\'re still you. but with a bigger lens now.','open your eyes whenever you\'re ready.'],
+];
+let vizScript=[],vizIdx=0,vizT=null;
+
+function initViz(){
+  const el=document.getElementById('xViz');
+  el.style.display='flex';
+  bubbleStyle(document.getElementById('xvInner'),S.world);
+  document.getElementById('xvAnimal').textContent=S.animalEmoji;
+  document.getElementById('xvInstr').textContent='visualization';
+  document.getElementById('xvSub').textContent='get comfortable. close your eyes. tap ready.';
+  document.getElementById('xvBtn').style.display='block';
+  document.getElementById('xvBtn').onclick=startViz;
+  vizScript=VIZ_SCRIPTS[Math.floor(Math.random()*VIZ_SCRIPTS.length)];
+  vizIdx=0;
+}
+
+function startViz(){
+  document.getElementById('xvBtn').style.display='none';
+  runVizLine();
+}
+
+function runVizLine(){
+  if(vizIdx>=vizScript.length){
+    document.getElementById('xvInstr').textContent='✨';
+    document.getElementById('xvSub').textContent="open your eyes when you're ready.";
+    vizT=setTimeout(()=>awardPearl('vision found','you went somewhere else and came back.'),3500);
+    expTimers.push(vizT);
+    return;
+  }
+  const line=vizScript[vizIdx];
+  const i=document.getElementById('xvInstr');
+  const s=document.getElementById('xvSub');
+  i.style.opacity=0;s.style.opacity=0;
+  setTimeout(()=>{i.textContent=vizIdx===0?'listen...':'';s.textContent=line;i.style.opacity=1;s.style.opacity=1;},300);
+  vizIdx++;
+  vizT=setTimeout(runVizLine,4000+line.length*38);
+  expTimers.push(vizT);
+}
+
+/* ════════════════════════════════════════════
+   GROUNDING
+════════════════════════════════════════════ */
+const GROUND_STEPS=[
+  {n:'5',p:'name 5 things you can see right now'},
+  {n:'4',p:'notice 4 things you can physically touch or feel'},
+  {n:'3',p:'listen for 3 sounds around you right now'},
+  {n:'2',p:'find 2 things you can smell — or remember a smell you like'},
+  {n:'1',p:'notice 1 taste in your mouth right now'},
+];
+let groundStep=-1;
+
+function initGround(){
+  const el=document.getElementById('xGround');
+  el.style.display='flex';
+  groundStep=-1;
+  const list=document.getElementById('xgList');
+  list.innerHTML='';
+  GROUND_STEPS.forEach((s,i)=>{
+    const d=document.createElement('div');
+    d.className='sitem';d.id=`sg${i}`;
+    d.innerHTML=`<div class="snum">${s.n}</div><div class="sdesc">${s.p}</div>`;
+    list.appendChild(d);
+  });
+  document.getElementById('xgBtn').textContent='start';
+  document.getElementById('xgBtn').onclick=stepGround;
+}
+
+function stepGround(){
+  const btn=document.getElementById('xgBtn');
+  if(groundStep>=0){
+    document.getElementById(`sg${groundStep}`).classList.remove('active');
+    document.getElementById(`sg${groundStep}`).classList.add('done');
+  }
+  groundStep++;
+  if(groundStep>=GROUND_STEPS.length){
+    awardPearl('grounded','all five senses. you\'re right here, right now.');
+    return;
+  }
+  document.getElementById(`sg${groundStep}`).classList.add('active');
+  btn.textContent=groundStep<GROUND_STEPS.length-1?'done, next →':'finish';
+}
+
+/* ════════════════════════════════════════════
+   WORD ANCHOR
+════════════════════════════════════════════ */
+const WORD_SETS={
+  default:['steady','here','now','step','next','ground','ease','clear','slow','breathe','solid','anchor'],
+  stressed:['still','anchor','root','pause','safe','here','land','ease','one','slow','hold','soft'],
+  school:['focus','step','next','start','read','write','done','try','pen','line','word','page'],
+  sport:['move','next','step','push','pace','breathe','strong','one','go','here','hold','done'],
+};
+let wordTapped=[];
+
+function initWord(){
+  const el=document.getElementById('xWord');
+  el.style.display='flex';
+  bubbleStyle(document.getElementById('xwInner'),S.world);
+  document.getElementById('xwAnimal').textContent=S.animalEmoji;
+  wordTapped=[];
+  document.getElementById('xwFeedback').textContent='';
+  const words=WORD_SETS[S.world==='field'?'sport':'default'];
+  const picks=[...words].sort(()=>Math.random()-.5).slice(0,8);
+  const row=document.getElementById('xwWords');
+  row.innerHTML='';
+  picks.forEach(w=>{
+    const c=document.createElement('div');
+    c.className='wchip';c.textContent=w;
+    c.onclick=()=>{
+      if(c.classList.contains('used'))return;
+      c.classList.add('used');
+      wordTapped.push(w);
+      const fb=['${w}... sit with that.','yes. ${w}.','${w}. breathe.','let ${w} land.'];
+      document.getElementById('xwFeedback').textContent=`${w}.`;
+      if(wordTapped.length>=5){
+        setTimeout(()=>{
+          document.getElementById('xwFeedback').textContent="that's enough. you're here.";
+          setTimeout(()=>awardPearl('words found','you anchored yourself. that\'s the skill.'),2000);
+        },1200);
+      }
+    };
+    row.appendChild(c);
+  });
+}
+
+
+/* ════════════════════════════════════════════
+   TAMAGOTCHI HAPPINESS ENGINE
+════════════════════════════════════════════ */
+
+// 6 levels of happiness: 0 = just arrived, 5 = thriving
+const HAP_LEVELS = [
+  { anim:'floatH0', dur:'9s',   glow:0,  glowOp:0,   orbs:0, label:'resting',      labelOp:.32, breatheDur:'8.5s' },
+  { anim:'floatH1', dur:'7.5s', glow:0,  glowOp:0,   orbs:0, label:'waking up',    labelOp:.45, breatheDur:'7s'   },
+  { anim:'floatH2', dur:'6s',   glow:20, glowOp:.25, orbs:1, label:'warming up',   labelOp:.58, breatheDur:'6.2s' },
+  { anim:'floatH3', dur:'5s',   glow:30, glowOp:.42, orbs:2, label:'feeling it',   labelOp:.72, breatheDur:'5.5s' },
+  { anim:'floatH4', dur:'4s',   glow:42, glowOp:.58, orbs:3, label:'feeling good', labelOp:.88, breatheDur:'5s'   },
+  { anim:'floatH5', dur:'3.2s', glow:58, glowOp:.72, orbs:5, label:'thriving ✦',   labelOp:1,   breatheDur:'4.2s' },
+];
+
+function updateGuideHappiness(level) {
+  const lvl       = HAP_LEVELS[Math.min(level, HAP_LEVELS.length - 1)];
+  const animal    = document.getElementById('mainAnimal');
+  const bubble    = document.getElementById('mainBubble');
+  const glowRing  = document.getElementById('glowRing');
+  const hapLabel  = document.getElementById('hapLabel');
+  const c         = WORLD_COLORS[S.world] || WORLD_COLORS.ocean;
+
+  // Animal float — smooth keyframe swap
+  animal.style.animation = lvl.anim + ' ' + lvl.dur + ' ease-in-out infinite';
+
+  // Bubble idle breathe speed (only when not in an activity)
+  const curAnim = bubble.style.animation || '';
+  if (!curAnim.includes('thinking') && !curAnim.includes('breatheIn') && !curAnim.includes('breatheOut')) {
+    bubble.style.animation = 'breatheIdle ' + lvl.breatheDur + ' ease-in-out infinite';
+  }
+
+  // Glow ring around bubble
+  if (lvl.glow > 0) {
+    glowRing.style.opacity = lvl.glowOp;
+    glowRing.style.boxShadow = '0 0 ' + lvl.glow + 'px ' + c.glow + ', 0 0 ' + (lvl.glow*2) + 'px ' + c.glow.replace(/[\d.]+\)$/, '0.12)');
+  } else {
+    glowRing.style.opacity = '0';
+  }
+
+  // Sparkle orbiters — fade in one by one as level rises
+  for (var i = 1; i <= 5; i++) {
+    var orb = document.getElementById('sorb' + i);
+    if (orb) {
+      orb.style.opacity   = i <= lvl.orbs ? '0.72' : '0';
+      orb.style.background = c.from;
+      orb.style.boxShadow  = '0 0 7px ' + c.glow;
+    }
+  }
+
+  // Happiness label
+  hapLabel.textContent    = lvl.label;
+  hapLabel.style.opacity  = lvl.labelOp;
+  hapLabel.style.color    = level >= 3 ? c.from : 'var(--muted)';
+
+  // Level 5 — tiny floating glyphs pop occasionally
+  if (level >= 5) startHeartPops();
+  else stopHeartPops();
+}
+
+var heartInterval = null;
+function startHeartPops() {
+  if (heartInterval) return;
+  heartInterval = setInterval(function() {
+    var bubble = document.getElementById('mainBubble');
+    if (!bubble) return;
+    var h = document.createElement('div');
+    h.className = 'heart-pop';
+    h.textContent = ['✦','·','˚','✧','⁺'][Math.floor(Math.random()*5)];
+    h.style.left  = (28 + Math.random() * 44) + '%';
+    h.style.fontSize = (0.65 + Math.random() * 0.55) + 'rem';
+    h.style.color = (WORLD_COLORS[S.world] || WORLD_COLORS.ocean).from;
+    bubble.appendChild(h);
+    setTimeout(function(){ h.remove(); }, 1000);
+  }, 1900);
+}
+function stopHeartPops() {
+  if (heartInterval) { clearInterval(heartInterval); heartInterval = null; }
+}
+
+// Patch initDojo to apply level 0 state on entry
+var _origInitDojo = initDojo;
+initDojo = function() {
+  _origInitDojo();
+  setTimeout(function(){ updateGuideHappiness(0); }, 350);
+};
+
+// Patch awardPearl to level-up the guide after the pearl drop
+var _origAwardPearl = awardPearl;
+awardPearl = function(title, sub) {
+  _origAwardPearl(title, sub);
+  setTimeout(function(){ updateGuideHappiness(S.pearls); }, 1500);
+};
+
+
+/* ════════════════════════════════════════════
+   CREDITS
+════════════════════════════════════════════ */
+function openCredits() {
+  const overlay = document.getElementById('creditsOverlay');
+  const fpInner = document.getElementById('fpInner');
+  const c = WORLD_COLORS[S.world] || WORLD_COLORS.ocean;
+  fpInner.style.background = 'radial-gradient(circle at 35% 30%,rgba(255,255,255,.3) 0%,transparent 40%),radial-gradient(circle at 50% 50%,' + c.from + ' 0%,' + c.via + ' 65%,#010508 100%)';
+  fpInner.style.boxShadow = '0 0 40px ' + c.glow + ', 0 0 80px ' + c.glow.replace(/[\d.]+\)$/, '0.2)');
+  overlay.classList.add('open');
+}
+function closeCredits() {
+  document.getElementById('creditsOverlay').classList.remove('open');
+}
+
+/* ════════════════════════════════════════════
+   KEYBOARD
+════════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeExp();});
+</script>
+</body>
+</html>
